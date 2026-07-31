@@ -1,7 +1,6 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
 from scipy.stats import zscore
 # =========================
 # LOAD DATA
@@ -84,14 +83,9 @@ df = pd.concat(
     axis=1
 )
 
-per90_df = per90_df.replace(
-    [float("inf"), float("-inf")],
-    0
-)
 
 per90_df = per90_df.fillna(0)
 
-print([x for x in df.columns if "/90" in x])
 # =========================
 # POSITION CLEANING
 # =========================
@@ -111,270 +105,6 @@ def clean_position(pos):
 
 df["Main_Position"] = df["Pos"].fillna("").apply(clean_position)
 
-
-# =========================
-# STAT GROUPS
-# =========================
-
-stat_groups = {
-
-    # =========================
-    # BASIC PLAYER INFORMATION
-    # =========================
-
-    "Player Information": [
-        "Player",
-        "Nation",
-        "Pos",
-        "Squad",
-        "Comp",
-        "Age",
-      
-    ],
-
-    # =========================
-    # GOALS & ASSISTS
-    # =========================
-
-    "Goal Contribution": [
-        "Gls",
-        "Ast",
-        "G+A",
-        "G-PK",
-        "PK",
-        "PKatt",
-        "G+A-PK"
-    ],
-
-
-    # =========================
-    # EXPECTED METRICS
-    # =========================
-
-    "Expected Performance": [
-        "xG",
-        "npxG",
-        "xAG",
-        "npxG+xAG",
-        "xG+xAG",
-        "G-xG",
-        "np:G-xG"
-    ],
-
-
-    # =========================
-    # SHOOTING
-    # =========================
-
-    "Shooting": [
-        "Sh",
-        "SoT",
-        "SoT%",
-        "Sh/90",
-        "SoT/90",
-        "G/Sh",
-        "G/SoT",
-        "Dist",
-        "FK",
-        "PK_stats_shooting",
-        "PKatt_stats_shooting",
-        "xG_stats_shooting",
-        "npxG_stats_shooting",
-        "npxG/Sh"
-    ],
-
-
-    # =========================
-    # PROGRESSION
-    # =========================
-
-    "Ball Progression": [
-        "PrgC",
-        "PrgP",
-        "PrgR",
-        "PrgDist",
-        "PrgDist_stats_possession",
-        "PrgC_stats_possession",
-        "PrgP_stats_passing",
-        "PrgR_stats_possession"
-    ],
-
-
-    # =========================
-    # PASSING
-    # =========================
-
-    "Passing": [
-        "Cmp",
-        "Att",
-        "Cmp%",
-        "TotDist",
-        "Ast_stats_passing",
-        "xAG_stats_passing",
-        "xA",
-        "A-xAG",
-        "KP",
-        "1/3",
-        "PPA",
-        "CrsPA",
-        "PrgP_stats_passing",
-        "Live",
-        "Dead",
-        "FK_stats_passing_types",
-        "TB",
-        "Sw",
-        "Crs",
-        "TI",
-        "CK",
-        "In",
-        "Out",
-        "Str",
-        "Cmp_stats_passing_types"
-    ],
-
-
-    # =========================
-    # POSSESSION / CARRYING
-    # =========================
-
-    "Possession & Carrying": [
-        "Touches",
-        "Def Pen",
-        "Def 3rd_stats_possession",
-        "Mid 3rd_stats_possession",
-        "Att 3rd_stats_possession",
-        "Att Pen",
-        "Live_stats_possession",
-        "Att_stats_possession",
-        "Succ",
-        "Succ%",
-        "Tkld",
-        "Tkld%",
-        "Carries",
-        "TotDist_stats_possession",
-        "CPA",
-        "Mis",
-        "Dis",
-        "Rec",
-        "1/3_stats_possession"
-    ],
-
-
-    # =========================
-    # CHANCE CREATION
-    # =========================
-
-    "Chance Creation": [
-        "SCA",
-        "SCA90",
-        "PassLive",
-        "PassDead",
-        "TO",
-        "Sh_stats_gca",
-        "GCA",
-        "GCA90"
-    ],
-
-
-    # =========================
-    # DEFENDING
-    # =========================
-
-    "Defensive Actions": [
-        "Tkl",
-        "TklW",
-        "Def 3rd",
-        "Mid 3rd",
-        "Att 3rd",
-        "Att_stats_defense",
-        "Tkl%",
-        "Lost",
-        "Blocks_stats_defense",
-        "Sh_stats_defense",
-        "Pass",
-        "Int",
-        "Tkl+Int",
-        "Clr",
-        "Err"
-    ],
-
-
-    # =========================
-    # DUELS / PHYSICAL
-    # =========================
-
-    "Duels & Physical": [
-        "Won",
-        "Lost_stats_misc",
-        "Won%",
-        "Recov",
-        "Fls",
-        "Fld_stats_misc",
-        "CrdY_stats_misc",
-        "CrdR_stats_misc",
-        "2CrdY"
-    ],
-
-
-    # =========================
-    # DISCIPLINE
-    # =========================
-
-    "Discipline": [
-        "CrdY",
-        "CrdR",
-        "2CrdY",
-        "Fls",
-        "Fld_stats_misc"
-    ],
-
-
-    # =========================
-    # GOALKEEPING BASIC
-    # =========================
-
-    "Goalkeeping": [
-        "GA",
-        "GA90",
-        "SoTA",
-        "Saves",
-        "Save%",
-        "W",
-        "D",
-        "L",
-        "CS",
-        "CS%",
-        "PKatt_stats_keeper",
-        "PKA",
-        "PKsv",
-        "PKm",
-        "PSxG",
-        "PSxG/SoT",
-        "PSxG+/-",
-        "/90"
-    ],
-
-
-    # =========================
-    # ADVANCED GOALKEEPING
-    # =========================
-
-    "Advanced Goalkeeping": [
-        "Cmp_stats_keeper_adv",
-        "Att_stats_keeper_adv",
-        "Cmp%_stats_keeper_adv",
-        "Att (GK)",
-        "Thr",
-        "Launch%",
-        "AvgLen",
-        "Opp",
-        "Stp",
-        "Stp%",
-        "#OPA",
-        "#OPA/90",
-        "AvgDist"
-    ]
-}
 position_features = {
 
     "FW": [
@@ -484,59 +214,6 @@ position_features = {
 
     "90s"
 ]
-}
-archetype_descriptions = {
-
-    "DF": {
-
-        "Ball Playing Defender":
-            "Centre back who progresses play. High passing, carries and progressive actions.",
-
-        "Stopper":
-            "Physical defender. High tackles, interceptions, clearances and aerial duels.",
-
-        "Full Back":
-            "Wide defender. High progression, carries and attacking involvement."
-    },
-
-
-    "MF": {
-
-        "Playmaker":
-            "Creative midfielder. High xA, key passes, progressive passing and chance creation.",
-
-        "Box To Box":
-            "Complete midfielder. High progression, carries, defensive work and involvement.",
-
-        "Ball Winner":
-            "Defensive midfielder. High tackles, interceptions, recoveries and duels."
-    },
-
-
-    "FW": {
-
-        "Clinical Finisher":
-            "Elite goalscorer. High goals, xG and finishing efficiency.",
-
-        "Complete Forward":
-            "All-round attacker combining finishing, creation and progression.",
-
-        "Pressing Forward":
-            "High work-rate attacker who creates through pressing.",
-
-        "Creator":
-            "Attacker focused on assists and chance creation."
-    },
-
-
-    "GK": {
-
-        "Shot Stopper":
-            "Goalkeeper focused on saves and shot prevention.",
-
-        "Sweeper Keeper":
-            "Aggressive goalkeeper with distribution and actions outside box."
-    }
 }
 archetype_stats = {
 
@@ -727,32 +404,6 @@ archetype_stats = {
 
 }
 
-player_profiles = {
-
-    "FW": [
-        "Clinical Finisher",
-        "Complete Forward",
-        "Pressing Forward",
-        "Creator"
-    ],
-
-    "MF": [
-        "Playmaker",
-        "Box To Box",
-        "Ball Winner"
-    ],
-
-    "DF": [
-        "Ball Playing Defender",
-        "Stopper",
-        "Full Back"
-    ],
-
-    "GK": [
-        "Shot Stopper",
-        "Sweeper Keeper"
-    ]
-}
 
 def create_cluster_zscores(cluster_summary):
 
@@ -901,8 +552,6 @@ def create_player_clusters():
         cluster_summary
         )       
 
-        print("\nZ SCORE PROFILE")
-        print(cluster_zscores)
         print("\n", position, "cluster profiles")
         print(cluster_summary)
 
