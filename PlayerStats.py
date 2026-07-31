@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+from scipy.stats import zscore
 # =========================
 # LOAD DATA
 # =========================
@@ -20,10 +21,8 @@ stats_to_convert = [
     "xG",
     "npxG",
     "xAG",
-
-    # Shooting
-    "Sh",
-    "SoT",
+    "G-xG",
+    "CPA",
 
     # Passing
     "Ast_stats_passing",
@@ -32,6 +31,13 @@ stats_to_convert = [
     "KP",
     "PPA",
     "PrgP",
+    # Passing distance
+    "TotDist",
+    "PrgDist",
+
+    # Possession distance
+    "TotDist_stats_possession",
+    "PrgDist_stats_possession",
 
     # Progression
     "PrgC",
@@ -61,9 +67,9 @@ for stat in stats_to_convert:
     if stat in df.columns:
 
         per90_df[f"{stat}/90"] = (
-            df[stat] /
-            df["90s"].replace(0, None)
-        )
+            pd.to_numeric(df[stat], errors="coerce") /
+            pd.to_numeric(df["90s"], errors="coerce").replace(0, None)
+)
 
 
 per90_df = (
@@ -85,10 +91,7 @@ per90_df = per90_df.replace(
 
 per90_df = per90_df.fillna(0)
 
-per90_df = per90_df.add_suffix("/90")
-
-df = pd.concat([df, per90_df], axis=1)
-
+print([x for x in df.columns if "/90" in x])
 # =========================
 # POSITION CLEANING
 # =========================
@@ -543,48 +546,50 @@ archetype_stats = {
 
     "FW": {
 
-        "Clinical Finisher": [
-            "Gls/90",
-            "xG/90",
-            "npxG/90",
-            "SoT/90",
-            "G/Sh",
-            "G/SoT"
-        ],
-
-
-        "Complete Forward": [
-            "G+A/90",
-            "xG/90",
-            "xAG/90",
-            "PrgR/90",
-            "Carries/90",
-            "SCA90",
-            "GCA90"
-        ],
-
-
-        "Pressing Forward": [
-            "Sh/90",
-            "SCA90",
-            "GCA90",
-            "Carries/90",
-            "Succ%",
-            "Recov/90"
-        ],
-
-
-        "Creator": [
-            "Ast/90",
-            "xAG/90",
-            "xA/90",
-            "KP/90",
-            "PPA/90",
-            "SCA90",
-            "GCA90"
-        ]
-
+    "Clinical Finisher": {
+        "Gls/90": 3,
+        "xG/90": 2,
+        "npxG/90": 2,
+        "SoT/90": 2,
+        "G/Sh": 3,
+        "G/SoT": 3
     },
+
+
+    "Complete Forward": {
+        "G+A/90": 3,
+        "xG/90": 2,
+        "xAG/90": 2,
+        "PrgR/90": 2,
+        "Carries/90": 2,
+        "SCA90": 2,
+        "GCA90": 3
+    },
+
+
+    "Pressing Forward": {
+        "Sh/90": 2,
+        "SCA90": 2,
+        "GCA90": 1,
+        "Carries/90": 2,
+        "Succ%": 2,
+        "Recov/90": 3,
+        "Tkl/90": 3,
+        "Int/90": 2
+    },
+
+
+    "Creator": {
+        "Ast/90": 3,
+        "xAG/90": 3,
+        "xA/90": 3,
+        "KP/90": 3,
+        "PPA/90": 2,
+        "SCA90": 2,
+        "GCA90": 2
+    }
+
+},
 
 
 
@@ -594,41 +599,43 @@ archetype_stats = {
 
     "MF": {
 
-        "Playmaker": [
-            "Ast/90",
-            "xAG/90",
-            "xA/90",
-            "KP/90",
-            "PPA/90",
-            "PrgP/90",
-            "SCA90",
-            "GCA90"
-        ],
-
-
-        "Box To Box": [
-            "G+A/90",
-            "PrgC/90",
-            "PrgP/90",
-            "Carries/90",
-            "Tkl/90",
-            "Int/90",
-            "Recov/90",
-            "90s"
-        ],
-
-
-        "Ball Winner": [
-            "Tkl/90",
-            "TklW/90",
-            "Int/90",
-            "Tkl+Int/90",
-            "Recov/90",
-            "Won/90",
-            "Won%"
-        ]
-
+    "Playmaker": {
+        "Ast/90": 2,
+        "xAG/90": 3,
+        "xA/90": 3,
+        "KP/90": 3,
+        "PPA/90": 2,
+        "PrgP/90": 3,
+        "SCA90": 1,
+        "GCA90": 2
     },
+
+
+    "Box To Box": {
+        "G+A/90": 1,
+        "PrgC/90": 3,
+        "PrgP/90": 2,
+        "Carries/90": 3,
+        "Tkl/90": 2,
+        "Int/90": 2,
+        "Recov/90": 3,
+        "Won/90": 2
+    },
+
+
+    "Ball Winner": {
+        "Tkl/90": 3,
+        "TklW/90": 2,
+        "Int/90": 2,
+        "Tkl+Int/90": 3,
+        "Recov/90": 3,
+        "Won/90": 3,
+        "Won%": 2
+    }
+
+},
+
+    
 
 
 
@@ -638,39 +645,48 @@ archetype_stats = {
 
    "DF": {
 
-    "Ball Playing Defender": [
-        "Cmp%",
-        "TotDist/90",
-        "PrgP/90",
-        "PrgC/90",
-        "Carries/90",
-        "Succ%"
-    ],
+    "Ball Playing Defender": {
+        "Cmp%":3,
+        "TotDist/90":2,
+        "PrgP/90":3,
+        "PrgC/90":1,
+        "Carries/90":2,
+        
+    },
 
 
-    "Stopper": [
-        "Tkl/90",
-        "TklW/90",
-        "Int/90",
-        "Tkl+Int/90",
-        "Clr/90",
-        "Blocks_stats_defense/90",
-        "Won/90",
-        "Won%",
-        "Recov/90"
-    ],
+    "Stopper": {
+        "Tkl/90":1,
+        "TklW/90":3,
+        "Int/90":2,
+        "Tkl+Int/90":2,
+        "Clr/90":3,
+        "Blocks_stats_defense/90":3,
+        "Won/90":3,
+        "Won%":3,
+        "Recov/90":3
+   },
 
 
-    "Full Back": [
-        "PrgC/90",
-        "PrgP/90",
-        "PrgR/90",
-        "Carries/90",
-        "Succ%",
-        "CPA/90",
-        "SCA90",
-        "Cmp%"
-    ]},
+    "Wing Back": {
+        "PrgC/90":3,
+        "PrgP/90":2,
+        "PrgR/90":1,
+        "Carries/90":3,
+        "Succ%":1,
+        "CPA/90":2,
+        "SCA90":2,
+        "Cmp%":1
+},
+
+  "Progressive Defender": {
+        "PrgC/90": 3,
+        "Carries/90": 3,
+        "PrgR/90": 2,
+        "Succ%": 2,
+        "TotDist/90": 2
+    }
+},
 
 
 
@@ -678,29 +694,36 @@ archetype_stats = {
     # GOALKEEPERS
     # =========================
 
-    "GK": {
+ "GK": {
 
-        "Shot Stopper": [
-            "GA90",
-            "Save%",
-            "CS%",
-            "PSxG/SoT",
-            "PSxG+/-",
-            "Stp%"
-        ],
+    "Shot Stopper": {
+        "Save%": 3,
+        "PSxG+/-": 3,
+        "CS%": 2,
+        "PSxG/SoT": 2,
+        "Stp%": 2
+    },
 
 
-        "Sweeper Keeper": [
-            "PSxG+/-",
-            "Stp%",
-            "#OPA/90",
-            "AvgDist",
-            "Launch%",
-            "AvgLen",
-            "Cmp%_stats_keeper_adv"
-        ]
+    "Sweeper Keeper": {
+        "#OPA/90": 5,
+        "AvgDist": 4,
+        "AvgLen": 3,
+        "Launch%": 2,
+        "Cmp%_stats_keeper_adv": 3,
+        "PSxG+/-": 1
+    },
 
+
+    "Traditional Keeper": {
+        "GA90": 2,
+        "Save%": 2,
+        "CS%": 2,
+        "PSxG": 4,
+        "90s": 1
     }
+
+}
 
 }
 
@@ -731,201 +754,199 @@ player_profiles = {
     ]
 }
 
+def create_cluster_zscores(cluster_summary):
+
+    # convert everything to numeric
+    numeric_summary = cluster_summary.apply(
+        lambda x: pd.to_numeric(x, errors="coerce")
+    )
+
+    # remove columns that became completely NaN
+    numeric_summary = numeric_summary.dropna(
+        axis=1,
+        how="all"
+    )
+
+    zscores = numeric_summary.apply(
+        zscore
+    )
+
+    return zscores
 
 # =========================
-# POSITION SELECTION
+# AUTOMATIC PLAYER CLUSTERING
 # =========================
+def name_clusters(cluster_summary, position):
 
-positions = sorted(df["Main_Position"].unique())
+    archetypes = archetype_stats[position]
 
+    # lower is better stats
+    reverse_stats = {
+        "GA90",
+    }
 
-def choose_position():
+    archetype_scores = {}
 
-    print("\nPick a position:")
+    for cluster in cluster_summary.index:
 
-    for index, position in enumerate(positions, start=1):
-        print(f"{index}: {position}")
+        cluster_values = cluster_summary.loc[cluster]
 
-    choice = int(input("> "))
+        scores = {}
 
-    selected_position = positions[choice - 1]
+        for archetype, stats in archetypes.items():
 
-    return selected_position
+            score = 0
 
-def choose_profile(position):
+            for stat, weight in stats.items():
 
-    profiles = archetype_descriptions[position]
+                if stat in cluster_summary.columns:
 
-    print("\nChoose player profile:\n")
+                    value = cluster_values[stat]
 
-    for index, (profile, description) in enumerate(profiles.items(), start=1):
-        print(f"{index}: {profile}")
-        print(f"   {description}\n")
+                    if stat in reverse_stats:
+                        value *= -1
 
-    choice = int(input("> "))
+                    score += value * weight
 
-    selected_profile = list(profiles.keys())[choice - 1]
 
-    return selected_profile
+            scores[archetype] = score
 
-# =========================
-# MAIN PROGRAM
-# =========================
+        print(cluster, scores)
+        best_match = max(
+            scores,
+            key=scores.get
+        )
 
-def rank_players():
+        archetype_scores[cluster] = best_match
 
-    # Ask the user what position they want to analyse
-    selected_position = choose_position()
 
+    return archetype_scores
 
-    # Ask the user what type of player they want
-    selected_profile = choose_profile(selected_position)
 
+def create_player_clusters():
 
-    # The number of clusters is based on how many player archetypes exist
-    number_of_clusters = len(archetype_stats[selected_position])
+    for position in ["DF", "MF", "FW", "GK"]:
 
+        print(f"Processing {position}")
 
-    # Filter the main dataframe so we only keep players from the chosen position
-    players = df[df["Main_Position"] == selected_position].copy()
-    #low minutes ruining clustering
-    players = players[players["90s"] >= 5]
+        players = df[
+            df["Main_Position"] == position
+        ].copy()
 
-    # Get the statistics that are relevant for this position
-    #
-    # We do NOT want every statistic.
-    selected_stats = position_features[selected_position]
 
+        players = players[
+            players["90s"] >= 5
+        ]
 
-    # Remove any statistics that don't exist in our CSV
-    selected_stats = [
-        stat for stat in selected_stats
-        if stat in players.columns
-    ]
 
-    print("Available stats:")
-    print(selected_stats)
-    X = players[selected_stats].copy()
+        # GET POSITION SPECIFIC FEATURES
+        features = position_features[position]
+        # GET POSITION SPECIFIC FEATURES
 
-    X = X.select_dtypes(include="number")
 
-    X = X.replace(
-        [float("inf"), float("-inf")],
-        0
-    )
+        numeric = players[features]
 
-    X = X.fillna(0)
 
-    # StandardScaler puts every statistic onto the same scale.- everything equal 
-    scaler = StandardScaler()
+        numeric = numeric.fillna(0)
 
 
-    # Convert our stats into scaled values
-    X_scaled = scaler.fit_transform(X)
+        scaler = StandardScaler()
 
+        X_scaled = scaler.fit_transform(
+            numeric
+        )
 
-    # Create the KMeans machine learning model- this will cluster the relevant groups based on the stats we care about 
-    kmeans = KMeans(
-        n_clusters=number_of_clusters,
-        random_state=42
-    )
 
+        if position == "FW":
+            clusters = 5
 
-    # Run the clustering algorithm
-    clusters = kmeans.fit_predict(X_scaled)
-    cluster_centers = pd.DataFrame(
-        kmeans.cluster_centers_,
-        columns=X.columns
-    )
-    # Evaluate how well separated the clusters are
-    silhouette = silhouette_score(
-        X_scaled,
-        clusters
-    )
+        elif position == "MF":
+            clusters = 5
 
-    # Match the players dataframe back to the players used in clustering
-    players = players.loc[X.index].copy()
+        elif position == "DF":
+            clusters = 4
 
+        elif position == "GK":
+            clusters = 3
 
-    # Add the cluster number to every player
-    players["Cluster"] = clusters
+        missing = []
 
+        for pos, feature_list in position_features.items():
+            for f in feature_list:
+                if f not in df.columns:
+                    missing.append((pos,f))
 
+        kmeans = KMeans(
+            n_clusters=clusters,
+            random_state=42,
+            n_init=20
+        )
 
-    # Calculate the average statistics of each cluster.
-    cluster_summary = (
-        players
-        .groupby("Cluster")[X.columns]
-        .mean()
-    )
-    cluster_to_archetype = {}
 
-    remaining_clusters = list(cluster_centers.index)
+        labels = kmeans.fit_predict(
+            X_scaled
+        )
 
-    for archetype, stats in archetype_stats[selected_position].items():
 
-        stats = [s for s in stats if s in cluster_centers.columns]
+        players["Cluster"] = labels
 
-        if len(stats) == 0:
-            print(f"No matching stats found for {archetype}")
-            continue
+        cluster_summary = (
+            players
+            .groupby("Cluster")[features]
+            .mean()
+            .round(2)
+        )
 
-        best_cluster = None
-        best_score = -999
+        cluster_zscores = create_cluster_zscores(
+        cluster_summary
+        )       
 
-        for cluster in remaining_clusters:
+        print("\nZ SCORE PROFILE")
+        print(cluster_zscores)
+        print("\n", position, "cluster profiles")
+        print(cluster_summary)
 
-            score = cluster_centers.loc[cluster, stats].mean()
+        print("\nCluster sizes")
+        print(players["Cluster"].value_counts())
 
-            if score > best_score:
-                best_score = score
-                best_cluster = cluster
+        cluster_names = name_clusters(
+            cluster_zscores,
+            position
+        )
 
-        if best_cluster is not None:
-            cluster_to_archetype[best_cluster] = archetype
-            remaining_clusters.remove(best_cluster)
+        print("\n", position, "cluster names")
+        for cluster, name in cluster_names.items():
+            print(f"Cluster {cluster} -> {name}")
 
-    players["Archetype"] = players["Cluster"].map(cluster_to_archetype)
+        df.loc[
+            players.index,
+            "Cluster"
+        ] = labels
+        df.loc[
+            players.index,
+            "Archetype"
+        ] = [
+            cluster_names[c]
+            for c in labels
+        ]
 
-    players = players[
-    players["Archetype"] == selected_profile
-    ].copy()
+        print("\n", position, "cluster profiles")
+        print(cluster_summary)
 
-    ranking_stats = [
-        s for s in archetype_stats[selected_position][selected_profile]
-        if s in X.columns
-    ]
+        print(
+            position,
+            "clusters created:",
+            clusters
+        )
 
-    cluster_id = [
-        k for k, v in cluster_to_archetype.items()
-        if v == selected_profile
-    ][0]
 
-    centre = cluster_centers.loc[cluster_id, ranking_stats]
+create_player_clusters()
 
-    scaled_players = pd.DataFrame(
-        scaler.transform(X),
-        columns=X.columns,
-        index=X.index
-    )
 
-    scaled_players = scaled_players.loc[players.index]
+df.to_csv(
+    "players_master.csv",
+    index=False
+)
 
-    players["Score"] = -(
-        (
-            scaled_players[ranking_stats] - centre
-        ) ** 2
-    ).sum(axis=1)
 
-    players = players.sort_values(
-        "Score",
-        ascending=False
-    )
-
-    print(
-        players[
-            ["Player", "Squad", "Score"] + ranking_stats
-        ].head(25)
-    )
-
-rank_players()
+print("Finished!")
